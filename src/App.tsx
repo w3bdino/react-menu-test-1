@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import styled from "styled-components";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
@@ -21,11 +21,11 @@ const schema = yup.object().shape({
 });
 
 const App = () => {
-  const [conditions, setConditions] = useState<number[]>([]);
+  //const [conditions, setConditions] = useState<number[]>([]);
   const [menulist, setMenuLists] = useState<MenuGrpTypes[]>([]);
 
   const {
-    reset,
+    watch,
     getValues,
     setValue,
     register,
@@ -35,12 +35,16 @@ const App = () => {
     mode: "onChange",
     resolver: yupResolver(schema),
   });
+
+  const watchAllFields = watch();
+
   const onSubmit = (data: IFormInputs) => {
     console.log(data);
     toast(`Success! ${JSON.stringify(data, null, 2)}`);
   };
 
   useEffect(() => {
+    // generate menu lists for mapping
     const newMenuLiist = radioData.menus.map(
       (menugroup: MenuDataTypes[], index: number) => {
         const menugrpid = `menugroup${index + 1}`;
@@ -51,27 +55,34 @@ const App = () => {
     setMenuLists([...newMenuLiist]);
   }, []);
 
+  // get and set rules
+  const conditions = useMemo(() => {
+    let conditions: number[] = [];
+    for (let x = 0; x <= menulist.length; x++) {
+      const rules: RuleTypes = radioData.rules;
+      if (rules[watchAllFields[menulist[x]?.menuname]]) {
+        conditions = [
+          ...conditions,
+          ...rules[watchAllFields[menulist[x]?.menuname]],
+        ];
+      }
+    }
+    return conditions;
+  }, [watchAllFields]);
+
   const handleSelectChange = (
     event: React.ChangeEvent<HTMLInputElement>,
     menu: number
   ) => {
     const value = event.target.value;
 
-    // get and set rules
-    const rules: RuleTypes = radioData.rules;
-    if (rules[value]) {
-      setConditions([...rules[value]] ? [...rules[value]] : []);
-    } else {
-      setConditions([]);
-    }
-
     // Reset child menus
-    for (let x = menu + 1; x <= menulist.length; x++) {
+    for (let x = menu + 1; x < menulist.length; x++) {
       setValue(menulist[x]?.menuname, "", {
         shouldValidate: true,
       });
     }
-    setValue(menulist[menu]?.menuname, event.target.value, {
+    setValue(menulist[menu]?.menuname, value, {
       shouldValidate: true,
     });
   };
